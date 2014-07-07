@@ -27,7 +27,7 @@ def initLogging(logFilename):
                     filemode = 'a');
 
 def version():
-    return 'SX-Hbc V0.1.4'
+    return 'SX-Hbc V0.1.6'
 
  
 class MyThread(QtCore.QThread):

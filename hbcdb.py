@@ -35,9 +35,9 @@ class HbcOrc:
         else:
             return self.rowsToDictList()
 
-    def getHbc(self,hphm):
+    def getHbc(self,hphm,hpzl):
         try:
-            self.cur.execute("select v.* from hbc_vehicle v left join hbc_all a on v.xh=a.nxh where v.hphm = '%s' and a.hphm = v.hphm"%hphm)
+            self.cur.execute("select v.* from hbc_vehicle v left join hbc_all a on v.xh=a.nxh where a.hphm = v.hphm and v.hpzl='%s' and v.hphm='%s'"%(hpzl,hphm))
         except Exception,e:
             raise
         else:
@@ -45,7 +45,7 @@ class HbcOrc:
 
     def getHbc2(self,hphm):
         try:
-            self.cur.execute("select v.* from hbc_vehicle v where v.hphm = '%s'"%hphm)
+            self.cur.execute("select v.* from hbc_vehicle v left join hbc_all a on v.xh=a.nxh where a.hphm = v.hphm and v.hpzl = '02' and v.hphm='LB1813'")
         except Exception,e:
             raise
         else:
@@ -80,7 +80,10 @@ if __name__ == "__main__":
     orc = HbcOrc('10.44.253.110','hzhbc','98hbc77','hzjj')
     #values = []
     orc.login()
-    print orc.getHbc1()
+    s = orc.getHbc2('LXX266')
+    print s
+    for i in s:
+        print i
     #print orc.getHbc1()
     #print a[0]['FDJH']
 ##    for i in orc.getHbc1():

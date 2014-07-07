@@ -47,14 +47,18 @@ class HbcCenter:
         self.imgMysql = ImgMysql(mysqlset['host'],mysqlset['user'],mysqlset['passwd'])
         self.kakouorc = KakouOrc(kakouset['host'],kakouset['user'],kakouset['passwd'],kakouset['sid'])
         self.hbcorc = HbcOrc(hbcset['host'],hbcset['user'],hbcset['passwd'],hbcset['sid'])
-        self.hpzl = {'01':u'黄牌','02':u'蓝牌','06':u'黑牌','16':u'学','15':u'挂'}
-        self.hpys = {'0':u'白牌','1':u'黄牌','2':u'蓝牌','3':u'黑牌','4':u'其他'}
+        self.hpzl  = {'01':u'黄牌','02':u'蓝牌','06':u'黑牌','16':u'学','15':u'挂'}
+        self.hpys  = {'0':u'白牌','1':u'黄牌','2':u'蓝牌','3':u'黑牌','4':u'其他'}
         self.hpys2 = {'0':u'白底黑字','1':u'黄底黑字','2':u'蓝底白字','3':u'黑底白字','4':u'其他'}
+        self.hpys3 = {'0':'00','1':'01','2':'02','3':'06','4':'00'}
         self.address = {'00000084':u'惠州惠城区东江大桥','00000096':u'惠州惠城区交警支队','00000094':u'惠州惠城区东湖路'}
         self.floder = {'00000084':u'303','00000096':u'302','00000094':u'301'}
         self.fxbh = {'SN':u'南向北','NS':u'北向南','EW':u'东向西','WE':u'西向东','IN':u'进城','OT':u'出城'}
-
-        self.imgpath = systset['imgpath']
+        self.fxbh2 = {'00000084':{'SN':u'南向北','NS':u'北向南','EW':u'东向西','WE':u'西向东','IN':u'东向西','OT':u'西向东'},
+                     '00000096':{'SN':u'南向北','NS':u'北向南','EW':u'东向西','WE':u'西向东','IN':u'东向西','OT':u'西向东'},
+                     '00000094':{'SN':u'南向北','NS':u'北向南','EW':u'东向西','WE':u'西向东','IN':u'东向西','OT':u'西向东'}}        
+        self.whitelist = set(['粤AE3Q73','粤LB1813','粤AW8G49','粤LXX266'])
+        self.imgpath  = systset['imgpath']
         self.timeflag = systset['time']
         
         self.loginmysqlflag = True
@@ -123,9 +127,9 @@ class HbcCenter:
             self.loginhbccount = 0
             raise
 
-    def getHbcFromKakou(self,hphm):
+    def getHbcFromKakou(self,hphm,hpzl):
         try:
-            return self.hbcorc.getHbc(hphm)
+            return self.hbcorc.getHbc(hphm,hpzl)
         except Exception,e:
             self.loginkakouorcflag = True
             self.loginkakoucount = 0
@@ -162,15 +166,22 @@ class HbcCenter:
             #print 'num',num
             if num > 0:
                 for s in plateinfo:
-                    if s['HPHM'] != None and s['HPHM'][:2]== '粤':
+                    hbchpzl = '00'
+                    if s['HPHM'] != None and s['HPHM'][:2]== '粤' and s['HPHM'] not in self.whitelist:
                         trim_h = ''
                         union_h = s['HPHM'].decode('gbk')
-                        if union_h[-1] == (u'学' or u'挂'):
+                        if union_h[-1] == u'学':
                             trim_h = union_h[1:-1]
+                            hbchpzl = '16'
+                        elif union_h[-1] == u'挂':
+                            trim_h = union_h[1:-1]
+                            hbchpzl = '15'
                         else:
                             trim_h = union_h[1:]
-                        #print trim_h
-                        h = self.getHbcFromKakou(trim_h)
+                        if hbchpzl == '00':
+                            hbchpzl = self.hpys3.get(s['HPYS'],'00')
+
+                        h = self.getHbcFromKakou(trim_h,hbchpzl)
                         
                         if h != []:
                             imgpath = ''
@@ -192,12 +203,12 @@ class HbcCenter:
                                 else:
                                     cpzl2 = u'标准车牌'
 
-                                self.name = u'机号'+self.floder[s['BZWZDM']]+u'车道A'+str(s['CDBH'])+s['JGSJ'].strftime('%Y年%m月%d日%H时%M分%S秒').decode('gbk')+u'R454DOK3T'+u'T'+cpzl2+u'C'+self.hpys2[s['HPYS']]+u'P'+s['HPHM'].decode('gbk')+u'驶向'+self.fxbh[s['FXBH']]+u'违章闯红灯'
+                                self.name = u'机号'+self.floder[s['BZWZDM']]+u'车道A'+str(s['CDBH'])+s['JGSJ'].strftime('%Y年%m月%d日%H时%M分%S秒').decode('gbk')+u'R454DOK3T'+u'T'+cpzl2+u'C'+self.hpys2[s['HPYS']]+u'P'+s['HPHM'].decode('gbk')+u'驶向'+self.fxbh2.get(s['BZWZDM'],'00').get(s['FXBH'],u'无')+u'违章闯红灯'
                                 self.path = self.imgpath+'/'+s['JGSJ'].strftime('%Y年%m月%d日').decode('gbk')+'/'+u'违章图片目录'
                                 imgpath = os.path.join(self.path.encode('utf8'),self.name.encode('utf8')+'.jpg')
                                 self.getImgByUrl(url,self.path,self.name)
                             
-                            values.append((self.address[s['BZWZDM']].encode('utf8'),s['JGSJ'],str(s['HPZL']).encode('utf8'),s['HPHM'].decode('gbk').encode('utf8'),self.fxbh[s['FXBH']].encode('utf8'),s['CLSD'],self.hpys[s['HPYS']].encode('utf8'),s['CDBH'],h[0]['FDJH'].decode('gbk').encode('utf8'),h[0]['CLSBDH'].decode('gbk').encode('utf8'),url,imgpath))
+                            values.append((self.address[s['BZWZDM']].encode('utf8'),s['JGSJ'],str(s['HPZL']).encode('utf8'),s['HPHM'].decode('gbk').encode('utf8'),self.fxbh2.get(s['BZWZDM'],'00').get(s['FXBH'],u'无').encode('utf8'),s['CLSD'],self.hpys[s['HPYS']].encode('utf8'),s['CDBH'],h[0]['FDJH'].decode('gbk').encode('utf8'),h[0]['CLSBDH'].decode('gbk').encode('utf8'),url,imgpath))
                             self.addHbc(values)
                             self.trigger.emit('<table><tr style="font-family:arial;font-size:14px;color:blue"><td>[%s]</td><td width="100">%s</td><td width="160">%s</td></tr></table>'%(s['JGSJ'],s['HPHM'],self.address[s['BZWZDM']].encode('gbk')),1)
             else:
